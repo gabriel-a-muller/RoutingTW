@@ -1,10 +1,31 @@
 """Vehicles Routing Problem (VRP) with Time Windows."""
 
+"""RULES: 
+1. Truck can only arrive inside time window.
+2. A Truck can stay after the time window, only if it respected the first rule.
+3. Static and constant unload timer for every Truck at the docks = 30 min (0.5 h).
+4. Each company MUST construct a feasible solution, by adding more Trucks if needed.
+5. Maximum of 5 Vehicles
+6. Number of Companies X
+"""
+
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
+from company import Company
 
 
-def create_data_model():
+MAX_VEHICLES = 5
+DOCK_NODE = 4
+DOCK_BEGIN = 6
+DOCK_END = 12
+DEPOT = 0
+NUM_COMPANIES = 4
+
+MAX_DOCK_BEGIN = 6
+MAX_DOCK_END = 12
+
+
+def create_data_model(num_vehicles):
     """Stores the data for the problem."""
     data = {}
     data['time_matrix'] = [
@@ -18,22 +39,23 @@ def create_data_model():
         [2, 4, 9, 6, 4, 3, 6, 0],
     ]
     data['time_windows'] = [
-        (0, 5),  # depot
-        (7, 12),  # 1
-        (10, 15),  # 2
-        (16, 18),  # 3
-        (10, 13),  # 4
-        (0, 5),  # 5
-        (5, 10),  # 6
-        (0, 4),  # 7
+        (6, 20),  # depot
+        (6, 20),  # 1
+        (6, 20),  # 2
+        (6, 20),  # 3
+        (DOCK_BEGIN, DOCK_END),  # 4 docks
+        (6, 20),  # 5
+        (6, 20),  # 6
+        (6, 20),  # 7
     ]
-    data['num_vehicles'] = 1
-    data['depot'] = 0
+    data['num_vehicles'] = num_vehicles
+    data['depot'] = DEPOT
     return data
 
 
 def print_solution(data, manager, routing, solution):
     """Prints solution on console."""
+
     time_dimension = routing.GetDimensionOrDie('Time')
     total_time = 0
     for vehicle_id in range(data['num_vehicles']):
@@ -42,8 +64,12 @@ def print_solution(data, manager, routing, solution):
         while not routing.IsEnd(index):
             time_var = time_dimension.CumulVar(index)
             plan_output += '{0} Time({1},{2}) -> '.format(
-                manager.IndexToNode(index), solution.Min(time_var),
+                manager.IndexToNode(index),
+                solution.Min(time_var),
                 solution.Max(time_var))
+            if manager.IndexToNode(index) == DOCK_NODE:
+                dock_arrival = solution.Min(time_var)
+
             index = solution.Value(routing.NextVar(index))
         time_var = time_dimension.CumulVar(index)
         plan_output += '{0} Time({1},{2})\n'.format(manager.IndexToNode(index),
@@ -53,13 +79,23 @@ def print_solution(data, manager, routing, solution):
             solution.Min(time_var))
         print(plan_output)
         total_time += solution.Min(time_var)
-    print('Total time of all routes: {}min'.format(total_time))
+    #print('Total time of all routes: {}min'.format(total_time))
+
+    company_dict = {
+        'depot': DEPOT,
+        'num_vehicles': data['num_vehicles'],
+        'plan_output': plan_output,
+        'total_time': total_time,
+        'dock_arrival': dock_arrival
+    }
+
+    return company_dict
 
 
-def main():
+def main(num_vehicles=1):
     """Solve the VRP with time windows."""
     # Instantiate the data problem.
-    data = create_data_model()
+    data = create_data_model(num_vehicles)
 
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
@@ -116,14 +152,22 @@ def main():
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-    print(search_parameters)
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
-    print(solution)
     # Print solution on console.
     if solution:
         print_solution(data, manager, routing, solution)
+    else:
+        num_vehicles += 1
+        if num_vehicles <= MAX_VEHICLES:
+            main(num_vehicles)
+        else:
+            print("Maximum Vehicle Reached!")
+            return None
 
+
+def engine():
+    pass
 
 if __name__ == '__main__':
     main()
