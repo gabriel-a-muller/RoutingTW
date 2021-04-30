@@ -25,7 +25,7 @@ MAX_DOCK_BEGIN = 6
 MAX_DOCK_END = 12
 
 
-def create_data_model(num_vehicles):
+def create_data_model(num_vehicles, depot, dock_begin, dock_end):
     """Stores the data for the problem."""
     data = {}
     data['time_matrix'] = [
@@ -43,13 +43,13 @@ def create_data_model(num_vehicles):
         (6, 20),  # 1
         (6, 20),  # 2
         (6, 20),  # 3
-        (DOCK_BEGIN, DOCK_END),  # 4 docks
+        (dock_begin, dock_end),  # 4 docks
         (6, 20),  # 5
         (6, 20),  # 6
         (6, 20),  # 7
     ]
     data['num_vehicles'] = num_vehicles
-    data['depot'] = DEPOT
+    data['depot'] = depot
     return data
 
 
@@ -95,7 +95,7 @@ def print_solution(data, manager, routing, solution):
 def main(num_vehicles=1):
     """Solve the VRP with time windows."""
     # Instantiate the data problem.
-    data = create_data_model(num_vehicles)
+    data = create_data_model(num_vehicles, DEPOT, DOCK_BEGIN, DOCK_END)
 
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
