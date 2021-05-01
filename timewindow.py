@@ -17,12 +17,12 @@ from company import Company
 MAX_VEHICLES = 5
 DOCK_NODE = 4
 DOCK_BEGIN = 6
-DOCK_END = 12
+DOCK_END = 20
 DEPOT = 0
 NUM_COMPANIES = 4
 
 MAX_DOCK_BEGIN = 6
-MAX_DOCK_END = 12
+MAX_DOCK_END = 20
 
 
 def create_data_model(num_vehicles, depot, dock_begin, dock_end):
@@ -58,6 +58,7 @@ def print_solution(data, manager, routing, solution):
 
     time_dimension = routing.GetDimensionOrDie('Time')
     total_time = 0
+    total_plan_output = []
     for vehicle_id in range(data['num_vehicles']):
         index = routing.Start(vehicle_id)
         plan_output = 'Route for vehicle {}:\n'.format(vehicle_id)
@@ -77,14 +78,12 @@ def print_solution(data, manager, routing, solution):
                                                     solution.Max(time_var))
         plan_output += 'Time of the route: {}min\n'.format(
             solution.Min(time_var))
-        print(plan_output)
         total_time += solution.Min(time_var)
-    #print('Total time of all routes: {}min'.format(total_time))
+        total_plan_output += [plan_output]
 
     company_dict = {
-        'depot': DEPOT,
         'num_vehicles': data['num_vehicles'],
-        'plan_output': plan_output,
+        'plan_output': total_plan_output,
         'total_time': total_time,
         'dock_arrival': dock_arrival
     }
@@ -92,10 +91,10 @@ def print_solution(data, manager, routing, solution):
     return company_dict
 
 
-def main(num_vehicles=1):
+def main(company, num_vehicles=1):
     """Solve the VRP with time windows."""
     # Instantiate the data problem.
-    data = create_data_model(num_vehicles, DEPOT, DOCK_BEGIN, DOCK_END)
+    data = create_data_model(num_vehicles, company.DEPOT, company.DOCK_BEGIN, company.DOCK_END)
 
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
@@ -156,18 +155,63 @@ def main(num_vehicles=1):
     solution = routing.SolveWithParameters(search_parameters)
     # Print solution on console.
     if solution:
-        print_solution(data, manager, routing, solution)
+        company_dict = print_solution(data, manager, routing, solution)
+        return company_dict
     else:
         num_vehicles += 1
         if num_vehicles <= MAX_VEHICLES:
-            main(num_vehicles)
+            return main(company, num_vehicles)
         else:
             print("Maximum Vehicle Reached!")
             return None
 
+def time_window_factory(time_window, time_split):
+    new_dock_begin = None
+    new_dock_end = None
+    print('wtf', time_split, time_window)
+    if time_split + 1 < MAX_DOCK_END :
+        new_dock_begin = time_split + 1
+    if (time_split - 1) > MAX_DOCK_BEGIN and (time_split - 1) > time_window[0]:
+        new_dock_end = time_split - 1
+    print('1 and 2: ', new_dock_end, new_dock_begin)
+    if new_dock_begin and new_dock_end:
+        splited_time_window = [(time_window[0], new_dock_end), (new_dock_begin, time_window[1])]
+    elif new_dock_begin:
+        splited_time_window = [(new_dock_begin, time_window[1])]
+    elif new_dock_end:
+        splited_time_window = [(time_window[0], new_dock_end)]
+    else:
+        return
+    print('splited_time_window: ', splited_time_window)
+    return splited_time_window 
 
 def engine():
-    pass
+    time_windows = []
+    time_windows += [(DOCK_BEGIN, DOCK_END)]
+    companies = create_companies()
+    for company in companies:
+        try:
+            tw = time_windows.pop()
+        except:
+            print('No Time Window Available!')
+            return
+        print('TimeWindow: ', tw)
+        company.set_time_window(tw)
+        company_dict = main(company)
+        company.set_company_dict(company_dict)
+        for plan_output in company.PLAN_OUTPUT:
+            print(plan_output)
+        if company.DOCK_ARRIVAL:
+            time_windows += time_window_factory(tw, company.DOCK_ARRIVAL)
+        
+
+def create_companies():
+    companies = []
+    companies += [Company(5)]
+    companies += [Company(0)]
+    companies += [Company(1)]
+    companies += [Company(3)]
+    return companies
 
 if __name__ == '__main__':
-    main()
+    engine()
