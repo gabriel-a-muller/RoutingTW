@@ -168,12 +168,10 @@ def main(company, num_vehicles=1):
 def time_window_factory(time_window, time_split):
     new_dock_begin = None
     new_dock_end = None
-    print('wtf', time_split, time_window)
-    if time_split + 1 < MAX_DOCK_END :
+    if time_split + 1 < MAX_DOCK_END and (time_split + 1) < time_window[1]:
         new_dock_begin = time_split + 1
     if (time_split - 1) > MAX_DOCK_BEGIN and (time_split - 1) > time_window[0]:
         new_dock_end = time_split - 1
-    print('1 and 2: ', new_dock_end, new_dock_begin)
     if new_dock_begin and new_dock_end:
         splited_time_window = [(time_window[0], new_dock_end), (new_dock_begin, time_window[1])]
     elif new_dock_begin:
@@ -181,8 +179,7 @@ def time_window_factory(time_window, time_split):
     elif new_dock_end:
         splited_time_window = [(time_window[0], new_dock_end)]
     else:
-        return
-    print('splited_time_window: ', splited_time_window)
+        return None
     return splited_time_window 
 
 def engine():
@@ -195,14 +192,17 @@ def engine():
         except:
             print('No Time Window Available!')
             return
-        print('TimeWindow: ', tw)
+        print('TimeWindow: ', tw, time_windows, '\n')
         company.set_time_window(tw)
         company_dict = main(company)
         company.set_company_dict(company_dict)
         for plan_output in company.PLAN_OUTPUT:
             print(plan_output)
+        print('Total time: ', company.TOTAL_TIME, '\n', '----------------')
         if company.DOCK_ARRIVAL:
-            time_windows += time_window_factory(tw, company.DOCK_ARRIVAL)
+            time_window_splited = time_window_factory(tw, company.DOCK_ARRIVAL)
+            if time_window_splited:
+                time_windows += time_window_splited
         
 
 def create_companies():
